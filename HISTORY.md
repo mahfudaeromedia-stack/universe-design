@@ -23,3 +23,9 @@
 - Re-delivered original foundation's tsconfig.json, tsconfig.app.json, and vite.config.ts, which were absent from prior delta ZIPs.
 - Netlify's first observed production build failed at TS5083 because tsconfig.json was absent at the repository root.
 - No editor/runtime feature changes; TypeScript build and production deploy require verification after committing the recovery files.
+
+## 0.3.2 — Netlify Vite entry recovery
+- Restored root `index.html` omitted from earlier delta handoffs; original foundation had the file.
+- Addressed observed Netlify failure: `Could not resolve entry module "index.html"`.
+- No feature or build configuration changes; no files deleted.
+- TypeScript stage passed in the latest Netlify log; production build remains pending until the next deploy succeeds.

@@ -1,20 +1,13 @@
-# Vector Studio 0.3.1 — Netlify TS5083 fix
+# Vector Studio 0.3.2 — Netlify missing Vite entry
 
-Observed build failure: `error TS5083: Cannot read file '/opt/build/repo/tsconfig.json'`.
+Netlify log: `Could not resolve entry module "index.html"` during `vite build`.
 
-The original foundation ZIP included 3 build configuration files, but the delta ZIPs 0.2 and 0.3 omitted them. This recovery delta provides them without changing application source.
+The original `vector-studio-foundation.zip` contained root `index.html`, which was not included in the prior delta handoffs. The original entry was restored without modification.
 
-Upload files into the **root** of GitHub repository `mahfudaeromedia-stack/universe-design` (same level as `package.json` and `netlify.toml`):
+Upload **`index.html` to the GitHub repository root**, alongside `package.json`, `vite.config.ts`, and `netlify.toml` (not in `src/`, `public/`, or a zip folder). Replace the root `HISTORY.md` with the included version. `README-FIX.md` is only an explanatory note and need not be committed.
 
-- `tsconfig.json` (new/missing)
-- `tsconfig.app.json` (new/missing)
-- `vite.config.ts` (new/missing)
-- `HISTORY.md` (updated)
+Commit to the `main` branch. Netlify should redeploy automatically if the repository's automatic deployments are enabled.
 
-`README-FIX.md` is a handoff note; it does not need to be committed.
+Changed/new: `index.html` (restored), `HISTORY.md` (updated). Deleted: none.
 
-**Deleted files:** none.
-
-Commit to `main`; Netlify should automatically start a new build when continuous deployment is active. Build command: `npm run build`; publish directory `dist`.
-
-**Verification status:** Source files match original foundation configuration; no claim of successful Netlify build until new deploy log confirms it. If next build fails, review first TypeScript or Vite error and avoid changing Netlify configuration speculatively.
+Verification: matched `index.html` byte-for-byte with original foundation; this fixes the observed missing-entry error. Full production build and live app not yet verified.
