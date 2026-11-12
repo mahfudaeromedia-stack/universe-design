@@ -18,3 +18,8 @@
 - Added responsive dashboard/login/image-tool styles.
 - Basic is the only enabled plan; Pro billing, entitlement enforcement, cloud sync, and photo filters are NOT implemented.
 - Validation: TypeScript transpile syntax check passed for all TS/TSX source files; PNG metadata CRC/density runtime test passed; npm install timed out in sandbox, so tsc production typecheck, Vite build, browser UI and Firebase login are NOT validated.
+
+## 0.3.1 — Netlify build configuration recovery
+- Re-delivered original foundation's tsconfig.json, tsconfig.app.json, and vite.config.ts, which were absent from prior delta ZIPs.
+- Netlify's first observed production build failed at TS5083 because tsconfig.json was absent at the repository root.
+- No editor/runtime feature changes; TypeScript build and production deploy require verification after committing the recovery files.
