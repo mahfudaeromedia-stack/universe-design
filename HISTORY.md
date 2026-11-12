@@ -8,3 +8,13 @@
 - Added layer visibility, locking, ordering, opacity, and blend modes.
 - Preserved SVG/PNG export and `.vsdoc` document workflow while upgrading them to use the versioned document model.
 - Kept all existing rectangle, ellipse, path, text, selection, move, property, autosave, undo/redo, and export behavior.
+
+## 0.3.0 — Web app foundation (partial, verification pending)
+- Added Firebase Authentication Google popup sign-in and a fail-closed setup screen when Firebase environment values are missing.
+- Added a signed-in project dashboard with local IndexedDB create/open/delete and a per-user UID namespace.
+- Routed editor project autosave through IndexedDB rather than one global `localStorage` document.
+- Added functional Image Resize & DPI tool: actual Canvas pixel resampling to PNG and lossless PNG pHYs DPI metadata updates without changing pixel data.
+- Added Netlify SPA redirect and build configuration and `.env.example`.
+- Added responsive dashboard/login/image-tool styles.
+- Basic is the only enabled plan; Pro billing, entitlement enforcement, cloud sync, and photo filters are NOT implemented.
+- Validation: TypeScript transpile syntax check passed for all TS/TSX source files; PNG metadata CRC/density runtime test passed; npm install timed out in sandbox, so tsc production typecheck, Vite build, browser UI and Firebase login are NOT validated.

@@ -4,15 +4,12 @@ import type {Shape} from './store';
 import {migrateDocument,normalizeItem} from './model';
 import type {Tool} from './model';
 import {documentToSvg,download,readFileDataUrl,readFileText,saveDocumentFile} from './io';
-import {loadLocal,saveLocal} from './persistence';
 import {MousePointer2,Move,Pen,Square,Circle,Type,Hand,ZoomIn,ZoomOut,Undo2,Redo2,Trash2,Download,FolderOpen,Save,Grid3X3,ImagePlus,Eye,EyeOff,Lock,Unlock,ArrowUp,ArrowDown} from 'lucide-react';
 const uid=()=>Math.random().toString(36).slice(2,10);
 export default function App(){
  const {doc,selected,tool,zoom,past,future,setTool,select,add,update,updateTransient,beginInteraction,endInteraction,remove,undo,redo,setZoom,load,toggleVisible,toggleLocked,moveLayer}=useStore();
  const {items,artboard}=doc; const svg=useRef<SVGSVGElement>(null); const [drag,setDrag]=useState<{id:string;dx:number;dy:number;mode:'draw'|'move'}|null>(null); const [grid,setGrid]=useState(true);
  const current=items.find(x=>x.id===selected);
- useEffect(()=>{const saved=loadLocal();if(saved)load(saved)},[]);
- useEffect(()=>{saveLocal(doc)},[doc]);
  useEffect(()=>{const fn=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo()}else if(e.key==='Delete'||e.key==='Backspace'){if(!current?.locked)remove()}else if(e.key==='Escape')select(null);else if(e.key.toLowerCase()==='v')setTool('select');else if(e.key.toLowerCase()==='a')setTool('direct');else if(e.key.toLowerCase()==='r')setTool('rect');else if(e.key.toLowerCase()==='o')setTool('ellipse');else if(e.key.toLowerCase()==='p')setTool('pen');else if(e.key.toLowerCase()==='t')setTool('text')};window.addEventListener('keydown',fn);return()=>window.removeEventListener('keydown',fn)},[undo,redo,remove,select,setTool,current]);
  const point=(e:React.PointerEvent)=>{const r=svg.current!.getBoundingClientRect();return{x:(e.clientX-r.left)/zoom,y:(e.clientY-r.top)/zoom}};
  const base=(type:Shape['type'],p:{x:number,y:number}):Shape=>normalizeItem({id:uid(),type,x:p.x,y:p.y,width:1,height:1,fill:'#f58220',stroke:'#172b4d',strokeWidth:1.5,name:type[0].toUpperCase()+type.slice(1)});
