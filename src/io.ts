@@ -1,9 +1,10 @@
 import type {LayerItem,VectorDocument} from './model';
 export const download=(blob:Blob,name:string)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),0)};
 export const readFileText=(f:File)=>new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(r.error);r.readAsText(f)});
-export const readFileDataUrl=(f:File)=>new Promise<string>((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result));r.onerror=()=>reject(r.error);r.readAsDataURL(f)});
 export const saveDocumentFile=(doc:VectorDocument)=>download(new Blob([JSON.stringify(doc,null,2)],{type:'application/json'}),`${doc.name||'vector-studio'}.vsdoc`);
-export const itemToSvg=(s:LayerItem)=>{const common=`opacity="${s.opacity}" style="mix-blend-mode:${s.blendMode}"`;
+export const itemToSvg=(s:LayerItem)=>{const cx=s.x+s.width/2,cy=s.y+s.height/2;
+ const transform=s.rotation||s.flipX||s.flipY?` transform="translate(${cx} ${cy}) rotate(${s.rotation||0}) scale(${s.flipX?-1:1} ${s.flipY?-1:1}) translate(${-cx} ${-cy})"`:'';
+ const common=`opacity="${s.opacity}" style="mix-blend-mode:${s.blendMode}"${transform}`;
  if(s.type==='rect')return `<rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" fill="${s.fill}" stroke="${s.stroke}" stroke-width="${s.strokeWidth}" ${common}/>`;
  if(s.type==='ellipse')return `<ellipse cx="${s.x+s.width/2}" cy="${s.y+s.height/2}" rx="${s.width/2}" ry="${s.height/2}" fill="${s.fill}" stroke="${s.stroke}" stroke-width="${s.strokeWidth}" ${common}/>`;
  if(s.type==='path')return `<path d="${s.d||''}" fill="${s.fill}" stroke="${s.stroke}" stroke-width="${s.strokeWidth}" ${common}/>`;

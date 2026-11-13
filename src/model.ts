@@ -1,4 +1,5 @@
-export type Tool = 'select'|'direct'|'pen'|'rect'|'ellipse'|'text'|'hand';
+export type Tool = 'select'|'direct'|'pen'|'rect'|'ellipse'|'text'|'hand'|'polygon'|'star'|'line';
+import type {Anchor} from './geometry';
 export type BlendMode = 'normal'|'multiply'|'screen'|'overlay'|'darken'|'lighten';
 export type ShapeType = 'rect'|'ellipse'|'path'|'text'|'image';
 
@@ -14,8 +15,14 @@ export type LayerItem = {
   strokeWidth:number;
   name:string;
   d?:string;
+  anchors?:Anchor[];
+  closed?:boolean;
+  rotation?:number;
+  flipX?:boolean;
+  flipY?:boolean;
   text?:string;
   src?:string;
+  ppi?:number;
   opacity:number;
   blendMode:BlendMode;
   visible:boolean;
@@ -39,7 +46,7 @@ export const createDocument = (items:LayerItem[]=[]):VectorDocument => ({
 
 export const normalizeItem = (item:Partial<LayerItem> & Pick<LayerItem,'id'|'type'>):LayerItem => ({
   x:0,y:0,width:1,height:1,fill:'none',stroke:'none',strokeWidth:0,name:'Object',
-  opacity:1,blendMode:'normal',visible:true,locked:false,...item
+  rotation:0,opacity:1,blendMode:'normal',visible:true,locked:false,...item
 });
 
 export const migrateDocument = (input:unknown):VectorDocument => {

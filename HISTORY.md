@@ -19,13 +19,26 @@
 - Basic is the only enabled plan; Pro billing, entitlement enforcement, cloud sync, and photo filters are NOT implemented.
 - Validation: TypeScript transpile syntax check passed for all TS/TSX source files; PNG metadata CRC/density runtime test passed; npm install timed out in sandbox, so tsc production typecheck, Vite build, browser UI and Firebase login are NOT validated.
 
-## 0.3.1 — Netlify build configuration recovery
-- Re-delivered original foundation's tsconfig.json, tsconfig.app.json, and vite.config.ts, which were absent from prior delta ZIPs.
-- Netlify's first observed production build failed at TS5083 because tsconfig.json was absent at the repository root.
-- No editor/runtime feature changes; TypeScript build and production deploy require verification after committing the recovery files.
+## 0.3.3 — Editor pointer coordinate correction (patch; awaiting browser verification)
+- Corrected screen/client to SVG document coordinate mapping using inverse SVG screen CTM and a viewBox fallback.
+- Captured pointer during object creation and move; removed premature stop on pointer leave.
+- Removed redundant undo snapshot on shape creation; retain one-gesture undo for moves.
+- No Firebase/Netlify changes; no files deleted.
+- Production build and browser interaction verification outstanding (dependency installation timeout).
 
-## 0.3.2 — Netlify Vite entry recovery
-- Restored root `index.html` omitted from earlier delta handoffs; original foundation had the file.
-- Addressed observed Netlify failure: `Could not resolve entry module "index.html"`.
-- No feature or build configuration changes; no files deleted.
-- TypeScript stage passed in the latest Netlify log; production build remains pending until the next deploy succeeds.
+## 0.4.0 — Professional Editor Core, first implementation (browser QA pending)
+- Replaced the basic editor canvas interactions with actual Bézier Pen drafting: click to add anchors, drag for symmetric control handles, Enter to finish, click first anchor to close.
+- Added direct anchor and individual in/out handle editing for new paths, path geometry translation/scaling, selection bounding-box resize handles and rotation handle.
+- Added rectangle/ellipse/line/polygon/star drawing, tool grouping, File/Edit/Object/View menus with functional actions, duplicate, horizontal/vertical flip, numeric rotation, align-to-artboard, grid/snap toggles and panning.
+- Fixed stroke/path SVG export transform parity for rotate/flip, and avoided recording a history step for click-only selection.
+- Added four executable pure-geometry regression tests (passed on Node 22 using TypeScript stripping).
+- Preserved authentication, project storage, Resize & DPI workflow and Netlify configuration. No source files deleted.
+- Limitation: no nested layers, multiple artboards, Pathfinder, raster brushes/filters, gradient designer, cloud sync or paid entitlement engine yet. Production Vite build and actual browser interaction test remain unverified because npm package registry was not reachable.
+
+## 0.4.1 — Image Size and resolution in the editor
+- Replaced the standalone Resize & DPI screen with Open Image on the dashboard. A PNG, JPEG or WebP opens as a raster layer in a new local project with an artboard sized to the image.
+- Added Image Size for the selected raster layer, Canvas Size for the artboard, and PNG export for either the selected image source or the visible composition.
+- PNG density-only edits preserve the original pixel data. Resampling writes PNG from PNG/JPEG/WebP. Composition PNG export accepts output pixels and PPI.
+- Fit the artboard to the available workspace height and width. Flush pending edits before returning to the dashboard and wait for the IndexedDB transaction to complete.
+- Removed `src/ResizeStudio.tsx` and its page styles.
+- Passed production TypeScript/Vite build, four geometry tests, PNG density/pixel checks and canvas history assertions. Browser UI, Google sign-in and Netlify deployment were not exercised.
