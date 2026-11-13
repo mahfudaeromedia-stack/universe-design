@@ -1,12 +1,15 @@
+import ImageDialog from './ImageDialog';
+import type {ImageAction} from './ImageDialog';
+import {imageTypes,openRaster} from './raster';
 import {useEffect,useRef,useState} from 'react';
-import type {PointerEvent as ReactPointerEvent} from 'react';
+import type {CSSProperties, PointerEvent as ReactPointerEvent} from 'react';
 import {useStore} from './store';
 import type {Shape} from './store';
 import {migrateDocument,normalizeItem} from './model';
 import type {Tool} from './model';
 import type {Anchor,Vec} from './geometry';
 import {bounds,pathD,round,scaleAnchors,translateAnchors} from './geometry';
-import {documentToSvg,download,readFileDataUrl,readFileText,saveDocumentFile} from './io';
+import {documentToSvg,download,readFileText,saveDocumentFile} from './io';
 import {MousePointer2,Move,Pen,Square,Circle,Type,Hand,ZoomIn,ZoomOut,Undo2,Redo2,Trash2,Download,FolderOpen,Save,Grid3X3,ImagePlus,Eye,EyeOff,Lock,Unlock,ArrowUp,ArrowDown,Star,Hexagon,Minus,Copy,FlipHorizontal,FlipVertical,AlignHorizontalJustifyCenter,AlignVerticalJustifyCenter,Maximize2,Check,X} from 'lucide-react';
 
 const uid=()=>globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2,12);
@@ -27,8 +30,9 @@ const toolGroups:{title:string;items:{tool:Tool;label:string;Icon:typeof Square}
  {title:'Content',items:[{tool:'text',label:'Text (T)',Icon:Type},{tool:'hand',label:'Hand (H)',Icon:Hand}]}
 ];
 export default function App(){
- const {doc,selected,tool,zoom,past,future,setTool,select,add,addTransient,update,updateTransient,beginInteraction,endInteraction,remove,undo,redo,setZoom,load,toggleVisible,toggleLocked,moveLayer}=useStore();
+ const {doc,selected,tool,zoom,past,future,setTool,select,add,addTransient,update,updateTransient,beginInteraction,endInteraction,remove,undo,redo,setZoom,load,toggleVisible,toggleLocked,moveLayer,resizeCanvas}=useStore();
  const {items,artboard}=doc;
+ const [imageAction,setImageAction]=useState<ImageAction|null>(null);
  const current=items.find(s=>s.id===selected);
  const svg=useRef<SVGSVGElement>(null);
  const stage=useRef<HTMLElement>(null);
@@ -153,10 +157,28 @@ export default function App(){
  const flip=(axis:'x'|'y')=>{if(!current||current.locked)return;const c=mid(current);if(current.anchors){const anchors=current.anchors.map(a=>{const fn=(p:Vec)=>axis==='x'?{x:2*c.x-p.x,y:p.y}:{x:p.x,y:2*c.y-p.y};return {...fn(a),...(a.in?{in:fn(a.in)}:{}),...(a.out?{out:fn(a.out)}:{})}});update(current.id,{anchors,d:pathD(anchors,current.closed)})}else update(current.id,axis==='x'?{flipX:!current.flipX}:{flipY:!current.flipY})};
  const setShapeField=(patch:Partial<Shape>)=>{if(!current||current.locked)return;if(current.anchors&&['x','y','width','height'].some(k=>k in patch)){const rect={x:patch.x??current.x,y:patch.y??current.y,width:patch.width??current.width,height:patch.height??current.height};update(current.id,transformShape(current,rect))}else update(current.id,patch)};
  const openFile=()=>{const input=document.createElement('input');input.type='file';input.accept='.vsdoc,.json';input.onchange=async()=>{const f=input.files?.[0];if(!f)return;try{load(migrateDocument(JSON.parse(await readFileText(f))))}catch{alert('Invalid Vector Studio document')}};input.click()};
- const importImage=()=>{const input=document.createElement('input');input.type='file';input.accept='image/png,image/jpeg,image/webp';input.onchange=async()=>{const f=input.files?.[0];if(!f)return;const src=await readFileDataUrl(f),img=new Image();img.onload=()=>{const ratio=Math.min(artboard.width*.65/img.width,artboard.height*.65/img.height,1),width=img.width*ratio,height=img.height*ratio;add(normalizeItem({...base('image',{x:(artboard.width-width)/2,y:(artboard.height-height)/2}),name:f.name,width,height,src,fill:'none',stroke:'none',strokeWidth:0}))};img.src=src};input.click()};
+ const importImage=()=>{
+  const input=document.createElement('input');
+  input.type='file';
+  input.accept=imageTypes;
+  input.onchange=async()=>{
+   const file=input.files?.[0];
+   if(!file)return;
+   try{
+    const image=await openRaster(file);
+    const board=useStore.getState().doc.artboard;
+    const ratio=Math.min(board.width*.65/image.width,board.height*.65/image.height,1);
+    const width=image.width*ratio,height=image.height*ratio;
+    add(normalizeItem({...base('image',{x:(board.width-width)/2,y:(board.height-height)/2}),
+     name:file.name,width,height,src:image.src,fill:'none',stroke:'none',strokeWidth:0}));
+   }catch(cause){alert(cause instanceof Error?cause.message:'Could not open this image.')}
+  };
+  input.click();
+ };
  const exportSvg=()=>download(new Blob([documentToSvg(doc)],{type:'image/svg+xml'}),`${doc.name}.svg`);
- const exportPng=()=>{const url=URL.createObjectURL(new Blob([documentToSvg(doc)],{type:'image/svg+xml'})),img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=artboard.width*2;c.height=artboard.height*2;c.getContext('2d')!.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>{if(b)download(b,`${doc.name}.png`);URL.revokeObjectURL(url)})};img.onerror=()=>{URL.revokeObjectURL(url);alert('PNG export failed')};img.src=url};
+ const exportPng=()=>setImageAction('export');
  useEffect(()=>{const fn=(e:KeyboardEvent)=>{
+  if(imageAction)return;
   const node=e.target as HTMLElement;
   if(node.closest('input,textarea,select,[contenteditable="true"]'))return;
   const mod=e.ctrlKey||e.metaKey;
@@ -176,17 +198,18 @@ export default function App(){
  const selectionOverlay=current&&current.visible&&!current.locked&&['select','direct'].includes(tool);
  const selectionRect=current?{x:current.x,y:current.y,w:Math.max(1,current.width),h:Math.max(1,current.height)}:null;
  const activeMenus:Record<string,{label:string;action:()=>void;disabled?:boolean}[]>={
- File:[{label:'New document',action:()=>load(migrateDocument([]))},{label:'Open document…',action:openFile},{label:'Save .vsdoc',action:()=>saveDocumentFile(doc)},{label:'Place image…',action:importImage},{label:'Export SVG',action:exportSvg},{label:'Export PNG @2x',action:exportPng}],
+ File:[{label:'New document',action:()=>load(migrateDocument([]))},{label:'Open document…',action:openFile},{label:'Save .vsdoc',action:()=>saveDocumentFile(doc)},{label:'Place image…',action:importImage},{label:'Export SVG',action:exportSvg},{label:'Export PNG…',action:exportPng}],
  Edit:[{label:'Undo',action:undo,disabled:!past.length},{label:'Redo',action:redo,disabled:!future.length},{label:'Duplicate',action:duplicate,disabled:!current},{label:'Delete selected',action:remove,disabled:!current}],
  Object:[{label:'Bring forward',action:()=>current&&moveLayer(current.id,1),disabled:!current},{label:'Send backward',action:()=>current&&moveLayer(current.id,-1),disabled:!current},{label:'Flip horizontal',action:()=>flip('x'),disabled:!current},{label:'Flip vertical',action:()=>flip('y'),disabled:!current},{label:'Center horizontally',action:()=>current&&setShapeField({x:(artboard.width-current.width)/2}),disabled:!current},{label:'Center vertically',action:()=>current&&setShapeField({y:(artboard.height-current.height)/2}),disabled:!current}],
+ Image:[{label:'Image Size…',action:()=>setImageAction('image'),disabled:current?.type!=='image'||current.locked||!current.src},{label:'Canvas Size…',action:()=>setImageAction('canvas')},{label:'Export Selected Layer PNG…',action:()=>setImageAction('layer-export'),disabled:current?.type!=='image'||!current.src}],
  View:[{label:'Zoom in',action:()=>setZoom(zoom+.25)},{label:'Zoom out',action:()=>setZoom(zoom-.25)},{label:'Actual size 100%',action:()=>setZoom(1)},{label:grid?'Hide grid':'Show grid',action:()=>setGrid(!grid)},{label:snap?'Disable snap to 10px':'Enable snap to 10px',action:()=>setSnap(!snap)}]
  };
  return <div className="app professional-app">
-  <header className="top"><div className="brand"><span className="mark">V</span><b>VECTOR STUDIO</b><small>EDITOR CORE 0.4</small></div><nav className="menubar">{Object.entries(activeMenus).map(([name,entries])=><div className="menu-entry" key={name}><button className={menu===name?'menu-active':''} onClick={()=>setMenu(menu===name?null:name)}>{name}</button>{menu===name&&<div className="menu-popup">{entries.map(entry=><button key={entry.label} disabled={entry.disabled} onClick={()=>{entry.action();setMenu(null)}}>{entry.label}</button>)}</div>}</div>)}</nav><div className="top-actions"><button title="Open" onClick={openFile}><FolderOpen size={16}/></button><button title="Save document" onClick={()=>saveDocumentFile(doc)}><Save size={16}/></button><button className="export" onClick={exportSvg}><Download size={15}/> Export SVG</button></div></header>
+  <header className="top"><div className="brand"><span className="mark">V</span><b>VECTOR STUDIO</b><small>0.4.1</small></div><nav className="menubar">{Object.entries(activeMenus).map(([name,entries])=><div className="menu-entry" key={name}><button className={menu===name?'menu-active':''} onClick={()=>setMenu(menu===name?null:name)}>{name}</button>{menu===name&&<div className="menu-popup">{entries.map(entry=><button key={entry.label} disabled={entry.disabled} onClick={()=>{entry.action();setMenu(null)}}>{entry.label}</button>)}</div>}</div>)}</nav><div className="top-actions"><button title="Open" onClick={openFile}><FolderOpen size={16}/></button><button title="Save document" onClick={()=>saveDocumentFile(doc)}><Save size={16}/></button><button className="export" onClick={exportSvg}><Download size={15}/> Export SVG</button></div></header>
   <div className="subbar"><span>{doc.name} <i>●</i></span><span>RGB / Preview</span><span className="subright">{artboard.name} · {artboard.width} × {artboard.height} px</span></div>
   <div className="main"><aside className="toolbar professional-tools">{toolGroups.map(group=><div className="tool-group" key={group.title}><div className="tool-group-title">{group.title}</div><div className="tool-group-items">{group.items.map(({tool:t,label,Icon})=><button key={t} className={tool===t?'active':''} title={label} aria-label={label} onClick={()=>choose(t)}><Icon size={18}/></button>)}</div></div>)}<div className="tool-group"><div className="tool-group-title">Assets</div><button title="Place image" onClick={importImage}><ImagePlus size={18}/></button></div></aside>
   <section className="stage" ref={stage}><div className="canvas-tools"><button onClick={()=>setGrid(!grid)} className={grid?'on':''}><Grid3X3 size={15}/> Grid</button><button onClick={()=>setSnap(!snap)} className={snap?'on':''}>Snap 10px: {snap?'On':'Off'}</button><span/><button onClick={()=>setZoom(zoom-.25)}><ZoomOut size={15}/></button><b>{Math.round(zoom*100)}%</b><button onClick={()=>setZoom(zoom+.25)}><ZoomIn size={15}/></button><button onClick={()=>{setZoom(1);setViewportPan({x:0,y:0})}}>Reset</button></div>
-   <div className="board-wrap" style={{aspectRatio:`${artboard.width}/${artboard.height}`,transform:`translate(${viewportPan.x}px,${viewportPan.y}px) scale(${zoom})`}}><svg ref={svg} className="board" width={artboard.width} height={artboard.height} viewBox={`0 0 ${artboard.width} ${artboard.height}`} onPointerDown={start} onPointerMove={moving} onPointerUp={stop} onPointerCancel={stop}>
+   <div className="board-wrap" style={{'--board-ratio':artboard.width/artboard.height,aspectRatio:`${artboard.width}/${artboard.height}`,transform:`translate(${viewportPan.x}px,${viewportPan.y}px) scale(${zoom})`} as CSSProperties}><svg ref={svg} className="board" width={artboard.width} height={artboard.height} viewBox={`0 0 ${artboard.width} ${artboard.height}`} onPointerDown={start} onPointerMove={moving} onPointerUp={stop} onPointerCancel={stop}>
     <rect width={artboard.width} height={artboard.height} fill={artboard.background}/>{grid&&<defs><pattern id="vs-grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e9edf2" strokeWidth="1"/></pattern></defs>}{grid&&<rect width={artboard.width} height={artboard.height} fill="url(#vs-grid)" pointerEvents="none"/>}
     {items.filter(s=>s.visible).map(s=><g key={s.id} opacity={s.opacity} style={{mixBlendMode:s.blendMode as any,cursor:s.locked?'not-allowed':tool==='select'?'move':'crosshair'}} transform={s.rotation||s.flipX||s.flipY?`translate(${mid(s).x} ${mid(s).y}) rotate(${s.rotation||0}) scale(${s.flipX?-1:1} ${s.flipY?-1:1}) translate(${-mid(s).x} ${-mid(s).y})`:undefined} onPointerDown={e=>objectDown(e,s)} onDoubleClick={e=>{if(s.type==='text'&&!s.locked){e.stopPropagation();const text=prompt('Edit text',s.text||'');if(text!==null)update(s.id,{text})}}}>
      {s.type==='rect'?<rect x={s.x} y={s.y} width={s.width} height={s.height} fill={s.fill} stroke={s.stroke} strokeWidth={s.strokeWidth}/>:s.type==='ellipse'?<ellipse cx={s.x+s.width/2} cy={s.y+s.height/2} rx={s.width/2} ry={s.height/2} fill={s.fill} stroke={s.stroke} strokeWidth={s.strokeWidth}/>:s.type==='path'?<path d={s.d} fill={s.fill} stroke={s.stroke} strokeWidth={s.strokeWidth} pointerEvents="visiblePainted"/>:s.type==='image'?<image href={s.src} x={s.x} y={s.y} width={s.width} height={s.height} preserveAspectRatio="none"/>:<text x={s.x} y={s.y+Math.min(30,s.height)} fontSize="30" fill={s.fill}>{s.text}</text>}
@@ -204,10 +227,17 @@ export default function App(){
   </section>
   <aside className="right"><div className="panel-tabs"><button className={panel==='properties'?'tab-active':''} onClick={()=>setPanel('properties')}>Properties</button><button className={panel==='layers'?'tab-active':''} onClick={()=>setPanel('layers')}>Layers</button></div><div className="panel">
    {panel==='properties'&&<><h4>TRANSFORM</h4>{current?<><div className="fields">{([['X','x'],['Y','y'],['W','width'],['H','height']] as const).map(([label,key])=><label key={key}>{label}<input disabled={current.locked} type="number" value={round(current[key])} onChange={e=>setShapeField({[key]:+e.target.value})}/></label>)}</div><label className="wide">Rotation (°)<input disabled={current.locked} type="number" value={round(current.rotation||0)} onChange={e=>setShapeField({rotation:+e.target.value})}/></label><div className="property-actions"><button title="Duplicate (Ctrl+D)" onClick={duplicate}><Copy size={15}/> Duplicate</button><button title="Flip horizontally" onClick={()=>flip('x')}><FlipHorizontal size={15}/></button><button title="Flip vertically" onClick={()=>flip('y')}><FlipVertical size={15}/></button></div><div className="property-actions"><button title="Center in artboard horizontally" onClick={()=>setShapeField({x:(artboard.width-current.width)/2})}><AlignHorizontalJustifyCenter size={15}/> Center X</button><button title="Center in artboard vertically" onClick={()=>setShapeField({y:(artboard.height-current.height)/2})}><AlignVerticalJustifyCenter size={15}/> Center Y</button></div></>:<p className="hint">Select a shape. Drag its bounding box handles to resize; use the circular handle to rotate.</p>}
+    {current?.type==='image'&&<><h4>IMAGE</h4><div className="property-actions"><button disabled={current.locked||!current.src} onClick={()=>setImageAction('image')}>Image Size / PPI…</button></div></>}
     <h4>APPEARANCE</h4>{current?<><label className="wide">Opacity<input disabled={current.locked} type="range" min="0" max="1" step="0.01" value={current.opacity} onChange={e=>setShapeField({opacity:+e.target.value})}/><span>{Math.round(current.opacity*100)}%</span></label><label className="wide">Blend mode<select disabled={current.locked} value={current.blendMode} onChange={e=>setShapeField({blendMode:e.target.value as Shape['blendMode']})}>{['normal','multiply','screen','overlay','darken','lighten'].map(x=><option key={x} value={x}>{x}</option>)}</select></label>{current.type!=='image'&&<><label className="wide">Fill <div className="color-row"><input type="color" disabled={current.locked} value={current.fill==='none'?'#ffffff':current.fill} onChange={e=>setShapeField({fill:e.target.value})}/><button onClick={()=>setShapeField({fill:'none'})}>None</button></div></label><label className="wide">Stroke<div className="color-row"><input type="color" disabled={current.locked} value={current.stroke==='none'?'#ffffff':current.stroke} onChange={e=>setShapeField({stroke:e.target.value})}/><button onClick={()=>setShapeField({stroke:'none'})}>None</button></div></label><label className="wide">Stroke width<input disabled={current.locked} type="number" min="0" max="100" value={current.strokeWidth} onChange={e=>setShapeField({strokeWidth:Math.max(0,+e.target.value)})}/></label></>}{current.type==='text'&&<label className="wide">Text<textarea disabled={current.locked} rows={3} value={current.text||''} onChange={e=>setShapeField({text:e.target.value})}/></label>}{current.type==='path'&&<div className="hint">{current.anchors?.length||0} Bézier anchors · {current.closed?'Closed':'Open'} path. Use Direct Selection (A) to move anchors and handles.</div>}<button className="danger widebtn" disabled={current.locked} onClick={remove}><Trash2 size={14}/> Delete object</button></>:<p className="hint">No object selected.</p>}</>}
    {panel==='layers'&&<><h4>LAYERS <span className="count">{items.length}</span></h4><p className="hint">Select, hide, lock or change stacking order.</p><div className="layers">{[...items].reverse().map(s=><div key={s.id} className={selected===s.id?'layerrow selected':'layerrow'}><button className="mini" title={s.visible?'Hide':'Show'} onClick={()=>toggleVisible(s.id)}>{s.visible?<Eye size={14}/>:<EyeOff size={14}/>}</button><button className="mini" title={s.locked?'Unlock':'Lock'} onClick={()=>toggleLocked(s.id)}>{s.locked?<Lock size={14}/>:<Unlock size={14}/>}</button><button className="layer" onClick={()=>select(s.id)}><span className="layer-icon">{s.type==='ellipse'?'◯':s.type==='text'?'T':s.type==='path'?'⌁':s.type==='image'?'▧':'▱'}</span><span className="layer-name">{s.name}</span></button><button className="mini" title="Move up" onClick={()=>moveLayer(s.id,1)}><ArrowUp size={13}/></button><button className="mini" title="Move down" onClick={()=>moveLayer(s.id,-1)}><ArrowDown size={13}/></button></div>)}</div></>}
    <h4>DOCUMENT</h4><div className="docinfo"><span>Artboard</span><b>{artboard.width} × {artboard.height} px</b><span>Color mode</span><b>RGB</b><span>Objects</span><b>{items.length}</b></div>
   </div></aside></div>
-  <footer><span>Vector Studio · Core 0.4</span><span>Documents autosaved in IndexedDB</span><span>Undo {past.length} · Redo {future.length}</span><span className="footright"><button title="Undo" onClick={undo} disabled={!past.length}><Undo2 size={14}/></button><button title="Redo" onClick={redo} disabled={!future.length}><Redo2 size={14}/></button><button onClick={exportPng}>Export PNG</button></span></footer>
+  <footer><span>Vector Studio</span><span>Documents autosaved in IndexedDB</span><span>Undo {past.length} · Redo {future.length}</span><span className="footright"><button title="Undo" onClick={undo} disabled={!past.length}><Undo2 size={14}/></button><button title="Redo" onClick={redo} disabled={!future.length}><Redo2 size={14}/></button><button onClick={exportPng}>Export PNG</button></span></footer>
+  {imageAction&&<ImageDialog action={imageAction} doc={doc} layer={current} onClose={()=>setImageAction(null)}
+   onCanvasSize={resizeCanvas} onImageSize={(id,patch)=>{
+    const live=useStore.getState().doc.items.find(item=>item.id===id);
+    if(!live||live.locked||live.src!==current?.src)throw new Error('This image layer changed. Reopen Image Size.');
+    update(id,patch);
+   }}/> }
  </div>;
 }

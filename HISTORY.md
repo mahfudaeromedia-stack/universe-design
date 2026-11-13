@@ -34,3 +34,11 @@
 - Added four executable pure-geometry regression tests (passed on Node 22 using TypeScript stripping).
 - Preserved authentication, project storage, Resize & DPI workflow and Netlify configuration. No source files deleted.
 - Limitation: no nested layers, multiple artboards, Pathfinder, raster brushes/filters, gradient designer, cloud sync or paid entitlement engine yet. Production Vite build and actual browser interaction test remain unverified because npm package registry was not reachable.
+
+## 0.4.1 — Image Size and resolution in the editor
+- Replaced the standalone Resize & DPI screen with Open Image on the dashboard. A PNG, JPEG or WebP opens as a raster layer in a new local project with an artboard sized to the image.
+- Added Image Size for the selected raster layer, Canvas Size for the artboard, and PNG export for either the selected image source or the visible composition.
+- PNG density-only edits preserve the original pixel data. Resampling writes PNG from PNG/JPEG/WebP. Composition PNG export accepts output pixels and PPI.
+- Fit the artboard to the available workspace height and width. Flush pending edits before returning to the dashboard and wait for the IndexedDB transaction to complete.
+- Removed `src/ResizeStudio.tsx` and its page styles.
+- Passed production TypeScript/Vite build, four geometry tests, PNG density/pixel checks and canvas history assertions. Browser UI, Google sign-in and Netlify deployment were not exercised.

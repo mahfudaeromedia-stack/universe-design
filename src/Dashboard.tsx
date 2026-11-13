@@ -1,15 +1,28 @@
 import {useEffect,useState} from 'react';
 import {FilePlus,FolderOpen,Image,LogOut,Trash2,PenTool} from 'lucide-react';
-import {createDocument} from './model';
+import {createDocument,migrateDocument,normalizeItem} from './model';
+import {imageTypes,openRaster} from './raster';
 import {deleteProject,getProjects,saveProject} from './projects';
 import type {ProjectRecord} from './projects';
 import type {User} from './auth';
 import {googleSignOut} from './auth';
-export default function Dashboard({user,onOpen,onResize}:{user:User;onOpen:(id:string)=>void;onResize:()=>void}){
+export default function Dashboard({user,onOpen}:{user:User;onOpen:(id:string)=>void}){
  const [projects,setProjects]=useState<ProjectRecord[]>([]),[error,setError]=useState('');
  const refresh=()=>getProjects(user.uid).then(setProjects).catch(e=>setError(String(e)));
  useEffect(()=>{refresh()},[user.uid]);
  const create=async()=>{try{const id=crypto.randomUUID();await saveProject({id,owner:user.uid,name:'Untitled Design',updatedAt:Date.now(),doc:createDocument()});onOpen(id)}catch(e){setError(String(e))}};
+ const openImage=async(file:File)=>{
+  try{
+   const {src,width,height}=await openRaster(file);
+   const name=file.name.replace(/\.[^.]+$/,'');
+   const doc=createDocument([normalizeItem({id:crypto.randomUUID(),type:'image',name:file.name,src,width,height})]);
+   doc.name=name;
+   doc.artboard={...doc.artboard,width,height};
+   const id=crypto.randomUUID();
+   await saveProject({id,owner:user.uid,name,updatedAt:Date.now(),doc});
+   onOpen(id);
+  }catch(cause){setError(cause instanceof Error?cause.message:String(cause))}
+ };
  const remove=async(id:string)=>{if(!confirm('Delete this local project? This cannot be undone.'))return;await deleteProject(id,user.uid);refresh()};
- return <div className="dashboard"><header className="dashboard-top"><span className="brand"><span className="mark">V</span><b>VECTOR STUDIO</b></span><div className="account"><span>{user.displayName||user.email}</span><span className="pill">Basic</span><button onClick={()=>googleSignOut()}><LogOut size={16}/> Sign out</button></div></header><main><div className="welcome"><h1>Your creative workspace</h1><p>Vector design, photo compositions, and image tools in one browser-based studio.</p></div><div className="quick-tools"><button onClick={create}><PenTool size={27}/><strong>New Vector Design</strong><small>Start with a 1200 × 800 artboard</small></button><button onClick={onResize}><Image size={27}/><strong>Resize & DPI</strong><small>Resize pixels and update PNG resolution metadata</small></button><label className="quick-import"><FolderOpen size={27}/><strong>Import Vector Studio Document</strong><small>Open a .vsdoc in the editor</small><input type="file" accept=".vsdoc,.json" onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const {migrateDocument}=await import('./model');const doc=migrateDocument(JSON.parse(await f.text()));const id=crypto.randomUUID();await saveProject({id,owner:user.uid,name:doc.name,updatedAt:Date.now(),doc});onOpen(id)}catch(err){setError(`Could not import document: ${String(err)}`)}}}/></label></div><div className="project-title"><h2>Local Projects</h2><span>Stored on this browser · no cloud sync yet</span></div>{projects.length?<div className="project-grid">{projects.map(p=><div className="project-card" key={p.id}><button onClick={()=>onOpen(p.id)}><FilePlus size={28}/><b>{p.name}</b><small>{new Date(p.updatedAt).toLocaleString()}</small></button><button title="Delete project" className="remove-project" onClick={()=>remove(p.id)}><Trash2 size={17}/></button></div>)}</div>:<p className="empty-projects">No projects yet. Create your first design above.</p>}{error&&<p className="error">{error}</p>}</main></div>
+ return <div className="dashboard"><header className="dashboard-top"><span className="brand"><span className="mark">V</span><b>VECTOR STUDIO</b></span><div className="account"><span>{user.displayName||user.email}</span><span className="pill">Basic</span><button onClick={()=>googleSignOut()}><LogOut size={16}/> Sign out</button></div></header><main><div className="welcome"><h1>Your creative workspace</h1><p>Vector design, photo compositions, and image tools in one browser-based studio.</p></div><div className="quick-tools"><button onClick={create}><PenTool size={27}/><strong>New Vector Design</strong><small>Start with a 1200 × 800 artboard</small></button><label className="quick-import"><Image size={27}/><strong>Open Image</strong><small>Edit a PNG, JPEG or WebP in the workspace</small><input type="file" accept={imageTypes} onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file)void openImage(file)}}/></label><label className="quick-import"><FolderOpen size={27}/><strong>Import Vector Studio Document</strong><small>Open a .vsdoc in the editor</small><input type="file" accept=".vsdoc,.json" onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const doc=migrateDocument(JSON.parse(await f.text()));const id=crypto.randomUUID();await saveProject({id,owner:user.uid,name:doc.name,updatedAt:Date.now(),doc});onOpen(id)}catch(err){setError(`Could not import document: ${String(err)}`)}}}/></label></div><div className="project-title"><h2>Local Projects</h2><span>Stored on this browser · no cloud sync yet</span></div>{projects.length?<div className="project-grid">{projects.map(p=><div className="project-card" key={p.id}><button onClick={()=>onOpen(p.id)}><FilePlus size={28}/><b>{p.name}</b><small>{new Date(p.updatedAt).toLocaleString()}</small></button><button title="Delete project" className="remove-project" onClick={()=>remove(p.id)}><Trash2 size={17}/></button></div>)}</div>:<p className="empty-projects">No projects yet. Create your first design above.</p>}{error&&<p className="error">{error}</p>}</main></div>
 }

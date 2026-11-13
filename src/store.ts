@@ -6,6 +6,7 @@ export type {LayerItem as Shape} from './model';
 type State={
  doc:VectorDocument;selected:string|null;tool:Tool;zoom:number;past:VectorDocument[];future:VectorDocument[];interactionBase:VectorDocument|null;
  setTool:(t:Tool)=>void;select:(id:string|null)=>void;add:(s:LayerItem)=>void;addTransient:(s:LayerItem)=>void;update:(id:string,p:Partial<LayerItem>)=>void;
+ resizeCanvas:(width:number,height:number)=>void;
  updateTransient:(id:string,p:Partial<LayerItem>)=>void;beginInteraction:()=>void;endInteraction:()=>void;
  remove:()=>void;undo:()=>void;redo:()=>void;setZoom:(n:number)=>void;load:(doc:VectorDocument)=>void;
  toggleVisible:(id:string)=>void;toggleLocked:(id:string)=>void;moveLayer:(id:string,dir:-1|1)=>void;
@@ -17,6 +18,8 @@ export const useStore=create<State>((set)=>({
  add:s=>set(st=>({...commit(st,{...st.doc,items:[...st.doc.items,s]}),selected:s.id})),
  addTransient:s=>set(st=>({doc:{...st.doc,items:[...st.doc.items,s]},selected:s.id})),
  update:(id,p)=>set(st=>commit(st,{...st.doc,items:st.doc.items.map(x=>x.id===id?{...x,...p}:x)})),
+ resizeCanvas:(width,height)=>set(st=>width===st.doc.artboard.width&&height===st.doc.artboard.height
+  ? st : commit(st,{...st.doc,artboard:{...st.doc.artboard,width,height}})),
  beginInteraction:()=>set(st=>({interactionBase:st.interactionBase??st.doc})),
  updateTransient:(id,p)=>set(st=>({doc:{...st.doc,items:st.doc.items.map(x=>x.id===id?{...x,...p}:x)}})),
  endInteraction:()=>set(st=>st.interactionBase&&st.interactionBase!==st.doc?({past:[...st.past,st.interactionBase].slice(-100),future:[],interactionBase:null}):({interactionBase:null})),

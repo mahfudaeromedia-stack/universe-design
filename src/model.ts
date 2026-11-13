@@ -22,6 +22,7 @@ export type LayerItem = {
   flipY?:boolean;
   text?:string;
   src?:string;
+  ppi?:number;
   opacity:number;
   blendMode:BlendMode;
   visible:boolean;
