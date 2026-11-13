@@ -19,13 +19,9 @@
 - Basic is the only enabled plan; Pro billing, entitlement enforcement, cloud sync, and photo filters are NOT implemented.
 - Validation: TypeScript transpile syntax check passed for all TS/TSX source files; PNG metadata CRC/density runtime test passed; npm install timed out in sandbox, so tsc production typecheck, Vite build, browser UI and Firebase login are NOT validated.
 
-## 0.3.1 — Netlify build configuration recovery
-- Re-delivered original foundation's tsconfig.json, tsconfig.app.json, and vite.config.ts, which were absent from prior delta ZIPs.
-- Netlify's first observed production build failed at TS5083 because tsconfig.json was absent at the repository root.
-- No editor/runtime feature changes; TypeScript build and production deploy require verification after committing the recovery files.
-
-## 0.3.2 — Netlify Vite entry recovery
-- Restored root `index.html` omitted from earlier delta handoffs; original foundation had the file.
-- Addressed observed Netlify failure: `Could not resolve entry module "index.html"`.
-- No feature or build configuration changes; no files deleted.
-- TypeScript stage passed in the latest Netlify log; production build remains pending until the next deploy succeeds.
+## 0.3.3 — Editor pointer coordinate correction (patch; awaiting browser verification)
+- Corrected screen/client to SVG document coordinate mapping using inverse SVG screen CTM and a viewBox fallback.
+- Captured pointer during object creation and move; removed premature stop on pointer leave.
+- Removed redundant undo snapshot on shape creation; retain one-gesture undo for moves.
+- No Firebase/Netlify changes; no files deleted.
+- Production build and browser interaction verification outstanding (dependency installation timeout).
