@@ -1,12 +1,13 @@
 {
   "name": "vector-studio",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "test:geometry": "node --experimental-strip-types --test tests/geometry.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
